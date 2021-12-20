@@ -22,13 +22,23 @@ namespace PhotosApp.Services
             return hashedPassword;
         }
 
+        public string HashPasswordWithSpecifiedSalt(byte[] saltBytes, string password)
+        {
+            var hashBytes = GetHashBytes(password, saltBytes);
+            var hashedPasswordBytes = ConcatenateBytes(saltBytes, hashBytes);
+            var hashedPassword = Convert.ToBase64String(hashedPasswordBytes);
+            return hashedPassword;
+        }
+
         public PasswordVerificationResult VerifyHashedPassword(TUser user,
             string hashedPassword, string providedPassword)
         {
-            byte[] expectedHashBytes = null;
-            byte[] actualHashBytes = null;
+            var expectedHashBytes = Convert.FromBase64String(hashedPassword);
+            var saltBytes = expectedHashBytes[..(SaltSizeInBits / 8)];
+            var providedPasswordHashed = HashPasswordWithSpecifiedSalt(saltBytes, providedPassword);
+            var actualHashBytes = Convert.FromBase64String(providedPasswordHashed);
 
-            throw new NotImplementedException();
+            // throw new NotImplementedException();
 
             // Если providedPassword корректен, то в результате хэширования его с той же самой солью,
             // что и оригинальный пароль, должен получаться тот же самый хэш.
@@ -44,6 +54,7 @@ namespace PhotosApp.Services
             {
                 rng.GetBytes(saltBytes);
             }
+
             return saltBytes;
         }
 
@@ -60,7 +71,7 @@ namespace PhotosApp.Services
         private static byte[] ConcatenateBytes(byte[] leftBytes, byte[] rightBytes)
         {
             var resultBytes = new byte[leftBytes.Length + rightBytes.Length];
-            
+
             Buffer.BlockCopy(
                 leftBytes, 0, // байты источника и позиция в них
                 resultBytes, 0, // байты назначения и начальная позиция в них
@@ -70,7 +81,7 @@ namespace PhotosApp.Services
                 rightBytes, 0, // байты источника и позиция в них
                 resultBytes, leftBytes.Length, // байты назначения и начальная позиция в них
                 rightBytes.Length); // количество байтов, которое надо скопировать
-            
+
             return resultBytes;
         }
 
