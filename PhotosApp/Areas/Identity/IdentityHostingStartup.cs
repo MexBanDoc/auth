@@ -1,5 +1,7 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -71,6 +73,20 @@ namespace PhotosApp.Areas.Identity
 
                 services.AddAuthorization(options =>
                 {
+                    options.DefaultPolicy = new AuthorizationPolicyBuilder(
+                            JwtBearerDefaults.AuthenticationScheme,
+                            IdentityConstants.ApplicationScheme)
+                        .RequireAuthenticatedUser()
+                        .Build();
+                    options.AddPolicy("Dev", policyBuilder =>
+                    {
+                        policyBuilder.AddAuthenticationSchemes(
+                            JwtBearerDefaults.AuthenticationScheme,
+                            IdentityConstants.ApplicationScheme);
+                        policyBuilder.RequireRole("Dev");
+                    });
+                        
+                    
                     options.AddPolicy(
                         "Beta", policyBuilder =>
                         {
@@ -99,7 +115,7 @@ namespace PhotosApp.Areas.Identity
                     });
 
                 services.AddTransient<IEmailSender, SimpleEmailSender>(serviceProvider =>
-                    new(
+                    new SimpleEmailSender(
                         serviceProvider.GetRequiredService<ILogger<SimpleEmailSender>>(),
                         serviceProvider.GetRequiredService<IWebHostEnvironment>(),
                         context.Configuration["SimpleEmailSender:Host"],
@@ -108,6 +124,29 @@ namespace PhotosApp.Areas.Identity
                         context.Configuration["SimpleEmailSender:UserName"],
                         context.Configuration["SimpleEmailSender:Password"]
                     ));
+
+                services.AddAuthentication()
+                    .AddJwtBearer(options =>
+                    {
+                        options.RequireHttpsMetadata = false;
+                        options.TokenValidationParameters = new()
+                        {
+                            ValidateIssuer = false,
+                            ValidateAudience = false,
+                            ValidateLifetime = true,
+                            ClockSkew = TimeSpan.Zero,
+                            ValidateIssuerSigningKey = true,
+                            IssuerSigningKey = TemporaryTokens.SigningKey
+                        };
+                        options.Events = new()
+                        {
+                            OnMessageReceived = c =>
+                            {
+                                c.Token = c.Request.Cookies["TemporaryToken"];
+                                return Task.CompletedTask;
+                            }
+                        };
+                    });
             });
         }
     }
