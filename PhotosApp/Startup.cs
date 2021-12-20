@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -40,13 +39,14 @@ namespace PhotosApp
             services.AddHttpContextAccessor();
 
             var connectionString = configuration.GetConnectionString("PhotosDbContextConnection")
-                                   ?? "Data Source=PhotosApp.db";
+                ?? "Data Source=PhotosApp.db";
             services.AddDbContext<PhotosDbContext>(o => o.UseSqlite(connectionString));
             // NOTE: Вместо Sqlite можно использовать LocalDB от Microsoft или другой SQL Server
             //services.AddDbContext<PhotosDbContext>(o =>
             //    o.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=PhotosApp;Trusted_Connection=True;"));
 
-            services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
+            // services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
+            services.AddScoped<IPhotosRepository, RemotePhotosRepository>();
 
             services.AddAutoMapper(cfg =>
             {
@@ -57,7 +57,7 @@ namespace PhotosApp
                     .ForMember(m => m.FileName, options => options.Ignore())
                     .ForMember(m => m.Id, options => options.Ignore())
                     .ForMember(m => m.OwnerId, options => options.Ignore());
-            }, new Assembly[0]);
+            }, new System.Reflection.Assembly[0]);
 
             services.AddTransient<ICookieManager, ChunkingCookieManager>();
         }
