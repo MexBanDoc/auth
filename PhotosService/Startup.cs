@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json.Serialization;
 using PhotosService.Data;
 using PhotosService.Models;
+using PhotosService.Services;
 using Serilog;
 
 namespace PhotosService
@@ -27,6 +31,8 @@ namespace PhotosService
             services.AddControllers(options =>
             {
                 options.ReturnHttpNotAcceptable = true;
+                // NOTE: Существенно, что новый провайдер добавляется в начало списка перед провайдером по умолчанию
+                options.ModelBinderProviders.Insert(0, new JwtSecurityTokenModelBinderProvider());
             })
             .AddNewtonsoftJson(options =>
             {
@@ -38,7 +44,6 @@ namespace PhotosService
             services.AddDbContext<PhotosDbContext>(o => o.UseSqlite(connectionString));
 
             services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
-            // services.AddScoped<IPhotosRepository, RemotePhotosRepository>();
 
             services.AddAutoMapper(cfg =>
             {
@@ -48,8 +53,27 @@ namespace PhotosService
             services.AddAuthentication("Bearer")
                 .AddJwtBearer("Bearer", options =>
                 {
-                    options.Authority = "https://localhost:7001";
-                    options.Audience = "photos_service";
+                    const string authority = "https://localhost:7001";
+                    const string apiResourceId = "photos_service";
+                    const string apiResourceSecret = "photos_service_secret";
+                    
+                    options.Authority = authority;
+                    options.Audience = apiResourceId;
+                    
+                    options.SecurityTokenValidators.Clear();
+                    options.SecurityTokenValidators.Add(new IntrospectionSecurityTokenValidator(
+                        authority, apiResourceId, apiResourceSecret));
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = context =>
+                        {
+                            JwtSecurityTokenModelBinder.SaveToken(context.HttpContext, context.SecurityToken);
+                            return Task.CompletedTask;
+                        }
+                    };
+                    
+                    options.TokenValidationParameters.ClockSkew = TimeSpan.Zero;
                 });
         }
 
