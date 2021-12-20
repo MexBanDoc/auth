@@ -38,6 +38,7 @@ namespace PhotosService
             services.AddDbContext<PhotosDbContext>(o => o.UseSqlite(connectionString));
 
             services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
+            // services.AddScoped<IPhotosRepository, RemotePhotosRepository>();
 
             services.AddAutoMapper(cfg =>
             {

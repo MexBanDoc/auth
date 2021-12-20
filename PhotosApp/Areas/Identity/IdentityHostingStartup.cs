@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using PhotosApp.Areas.Identity.Data;
 using PhotosApp.Services;
 using PhotosApp.Services.Authorization;
@@ -36,6 +37,14 @@ namespace PhotosApp.Areas.Identity
                     .AddPasswordValidator<UsernameAsPasswordValidator<PhotosAppUser>>()
                     .AddEntityFrameworkStores<UsersDbContext>()
                     .AddErrorDescriber<RussianIdentityErrorDescriber>();
+
+                services.ConfigureExternalCookie(options =>
+                {
+                    options.Cookie.Name = "PhotosApp.Auth.External";
+                    options.Cookie.HttpOnly = true;
+                    options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+                    options.SlidingExpiration = true;
+                });
                 
                 services.Configure<IdentityOptions>(options =>
                 {
@@ -59,7 +68,7 @@ namespace PhotosApp.Areas.Identity
                 services.ConfigureApplicationCookie(options =>
                 {
                     var serviceProvider = services.BuildServiceProvider();
-                    options.SessionStore = serviceProvider.GetRequiredService<EntityTicketStore>();
+                    // options.SessionStore = serviceProvider.GetRequiredService<EntityTicketStore>();
                     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
                     options.Cookie.Name = "PhotosApp";
                     options.Cookie.HttpOnly = true;
@@ -68,7 +77,7 @@ namespace PhotosApp.Areas.Identity
                     // ReturnUrlParameter requires 
                     //using Microsoft.AspNetCore.Authentication.Cookies;
                     options.ReturnUrlParameter = CookieAuthenticationDefaults.ReturnUrlParameter;
-                    options.SlidingExpiration = true;
+                    // options.SlidingExpiration = true;
                 });
 
                 services.AddAuthorization(options =>
@@ -78,12 +87,14 @@ namespace PhotosApp.Areas.Identity
                             IdentityConstants.ApplicationScheme)
                         .RequireAuthenticatedUser()
                         .Build();
+                    
                     options.AddPolicy("Dev", policyBuilder =>
                     {
-                        policyBuilder.AddAuthenticationSchemes(
-                            JwtBearerDefaults.AuthenticationScheme,
-                            IdentityConstants.ApplicationScheme);
-                        policyBuilder.RequireRole("Dev");
+                        policyBuilder.RequireAuthenticatedUser();
+                        // policyBuilder.RequireRole("Dev");
+                        // policyBuilder.AddAuthenticationSchemes(
+                        //     JwtBearerDefaults.AuthenticationScheme,
+                        //     IdentityConstants.ApplicationScheme);
                     });
                         
                     
@@ -108,11 +119,27 @@ namespace PhotosApp.Areas.Identity
                 });
 
                 services.AddAuthentication()
-                    .AddGoogle("Google", options =>
-                    {
-                        options.ClientId = context.Configuration["Authentication:Google:ClientId"];
-                        options.ClientSecret = context.Configuration["Authentication:Google:ClientSecret"];
-                    });
+                    // .AddGoogle("Google", options =>
+                    // {
+                    //     options.ClientId = context.Configuration["Authentication:Google:ClientId"];
+                    //     options.ClientSecret = context.Configuration["Authentication:Google:ClientSecret"];
+                    // });
+                    .AddOpenIdConnect(
+                        authenticationScheme: "Google",
+                        displayName: "Google",
+                        options =>
+                        {
+                            options.Authority = "https://accounts.google.com/";
+                            options.ClientId = context.Configuration["Authentication:Google:ClientId"];
+                            options.ClientSecret = context.Configuration["Authentication:Google:ClientSecret"];
+
+                            options.CallbackPath = "/signin-google";
+                            options.SignedOutCallbackPath = "/signout-callback-google";
+                            options.RemoteSignOutPath = "/signout-google";
+                            
+                            options.Scope.Add("email");
+                            options.SaveTokens = true;
+                        });
 
                 services.AddTransient<IEmailSender, SimpleEmailSender>(serviceProvider =>
                     new SimpleEmailSender(
@@ -129,7 +156,7 @@ namespace PhotosApp.Areas.Identity
                     .AddJwtBearer(options =>
                     {
                         options.RequireHttpsMetadata = false;
-                        options.TokenValidationParameters = new()
+                        options.TokenValidationParameters = new TokenValidationParameters
                         {
                             ValidateIssuer = false,
                             ValidateAudience = false,
@@ -138,7 +165,7 @@ namespace PhotosApp.Areas.Identity
                             ValidateIssuerSigningKey = true,
                             IssuerSigningKey = TemporaryTokens.SigningKey
                         };
-                        options.Events = new()
+                        options.Events = new JwtBearerEvents
                         {
                             OnMessageReceived = c =>
                             {
@@ -146,6 +173,27 @@ namespace PhotosApp.Areas.Identity
                                 return Task.CompletedTask;
                             }
                         };
+                    });
+                
+                services.AddAuthentication()
+                    .AddOpenIdConnect("Passport", "Паспорт", options =>
+                    {
+                        options.Authority = "https://localhost:7001";
+
+                        options.ClientId = "Photos App by OIDC";
+                        options.ClientSecret = "secret";
+                        options.ResponseType = "code";
+
+                        // NOTE: oidc и profile уже добавлены по умолчанию
+                        options.Scope.Add("email");
+
+                        options.CallbackPath = "/signin-passport";
+
+                        // NOTE: все эти проверки токена выполняются по умолчанию, указаны для ознакомления
+                        options.TokenValidationParameters.ValidateIssuer = true; // проверка издателя
+                        options.TokenValidationParameters.ValidateAudience = true; // проверка получателя
+                        options.TokenValidationParameters.ValidateLifetime = true; // проверка не протух ли
+                        options.TokenValidationParameters.RequireSignedTokens = true; // есть ли валидная подпись издателя
                     });
             });
         }
