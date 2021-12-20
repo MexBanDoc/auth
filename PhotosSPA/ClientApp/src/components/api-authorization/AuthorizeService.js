@@ -1,8 +1,5 @@
-import { UserManager, WebStorageStateStore } from "oidc-client";
-import {
-  ApiAuthorizationClientConfiguration,
-  ApplicationName,
-} from "./ApiAuthorizationConstants";
+import {UserManager, WebStorageStateStore} from "oidc-client";
+import {ApiAuthorizationClientConfiguration, ApplicationName,} from "./ApiAuthorizationConstants";
 
 export class AuthorizeService {
   _callbacks = [];
@@ -26,7 +23,8 @@ export class AuthorizeService {
 
     await this.ensureUserManagerInitialized();
     const user = await this.userManager.getUser();
-    return user && user.profile;
+    const accessTokenExpired = !user || typeof user.expired !== "boolean" || user.expired;
+    return user && !accessTokenExpired ? user.profile : null;
   }
 
   async getAccessToken() {
@@ -47,7 +45,7 @@ export class AuthorizeService {
     await this.ensureUserManagerInitialized();
     try {
       const silentUser = await this.userManager.signinSilent(
-        this.createArguments()
+          this.createArguments()
       );
       this.updateState(silentUser);
       return this.success(state);
@@ -58,12 +56,12 @@ export class AuthorizeService {
       try {
         if (this._popUpDisabled) {
           throw new Error(
-            "Popup disabled. Change 'AuthorizeService.js:AuthorizeService._popupDisabled' to false to enable it."
+              "Popup disabled. Change 'AuthorizeService.js:AuthorizeService._popupDisabled' to false to enable it."
           );
         }
 
         const popUpUser = await this.userManager.signinPopup(
-          this.createArguments()
+            this.createArguments()
         );
         this.updateState(popUpUser);
         return this.success(state);
@@ -109,7 +107,7 @@ export class AuthorizeService {
     try {
       if (this._popUpDisabled) {
         throw new Error(
-          "Popup disabled. Change 'AuthorizeService.js:AuthorizeService._popupDisabled' to false to enable it."
+            "Popup disabled. Change 'AuthorizeService.js:AuthorizeService._popupDisabled' to false to enable it."
         );
       }
 
@@ -156,15 +154,15 @@ export class AuthorizeService {
 
   unsubscribe(subscriptionId) {
     const subscriptionIndex = this._callbacks
-      .map((element, index) =>
-        element.subscription === subscriptionId
-          ? { found: true, index }
-          : { found: false }
-      )
-      .filter((element) => element.found === true);
+        .map((element, index) =>
+            element.subscription === subscriptionId
+                ? { found: true, index }
+                : { found: false }
+        )
+        .filter((element) => element.found === true);
     if (subscriptionIndex.length !== 1) {
       throw new Error(
-        `Found an invalid number of subscriptions ${subscriptionIndex.length}`
+          `Found an invalid number of subscriptions ${subscriptionIndex.length}`
       );
     }
 
@@ -209,6 +207,12 @@ export class AuthorizeService {
     this.userManager.events.addUserSignedOut(async () => {
       await this.userManager.removeUser();
       this.updateState(undefined);
+    });
+
+    this.userManager.events.addAccessTokenExpired(async () => {
+      if (this._user !== undefined) {
+        this.updateState(undefined);
+      }
     });
   }
 

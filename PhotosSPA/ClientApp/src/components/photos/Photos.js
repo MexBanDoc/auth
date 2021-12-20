@@ -1,6 +1,6 @@
-import React, { Component } from "react";
+import React, {Component} from "react";
 import authService from "../api-authorization/AuthorizeService";
-import { PhotosServiceUrl } from "./PhotosConstants";
+import {PhotosServiceUrl} from "./PhotosConstants";
 import "./Photos.css";
 
 export class Photos extends Component {
@@ -20,10 +20,10 @@ export class Photos extends Component {
   // NOTE: Здесь формируется разметка страницы
   render() {
     return (
-      <div className="photosContainer">
-        <h1>Все фотографии</h1>
-        {this.renderContents()}
-      </div>
+        <div className="photosContainer">
+          <h1>Все фотографии</h1>
+          {this.renderContents()}
+        </div>
     );
   }
 
@@ -34,17 +34,17 @@ export class Photos extends Component {
   renderContents() {
     if (this.state.loading) {
       return (
-        <p>
-          <em>Загрузка...</em>
-        </p>
+          <p>
+            <em>Загрузка...</em>
+          </p>
       );
     }
 
     if (this.state.errorMessage != null) {
       return (
-        <p>
-          <em>{this.state.errorMessage}</em>
-        </p>
+          <p>
+            <em>{this.state.errorMessage}</em>
+          </p>
       );
     }
 
@@ -59,18 +59,19 @@ export class Photos extends Component {
   // Изначально показывается ID и имя файла в сервисе фотографий.
   renderPhoto(photo) {
     return (
-      <div key={photo.id} className="photoContainer">
-        <h3>{photo.title}</h3>
-        <ul>
-          <li>
-            <b>ID:</b> <span>{photo.id}</span>
-          </li>
-          <li>
-            <b>Файл:</b> <span>{photo.fileName}</span>
-          </li>
-          <span>{photo.url}</span>
-        </ul>
-      </div>
+        <div key={photo.id} className="photoContainer">
+          <h3>{photo.title}</h3>
+          <ul>
+            <li>
+              <b>ID:</b> <span>{photo.id}</span>
+            </li>
+            <li>
+              <b>Файл:</b> <span>{photo.fileName}</span>
+            </li>
+            {/*<span>{photo.url}</span>*/}
+            <img src={photo.url} className={"photo"}/>
+          </ul>
+        </div>
     );
   }
 
@@ -93,10 +94,10 @@ export class Photos extends Component {
 
     // NOTE: Если есть access token, то можно попробовать получить информацию о фотографиях
     const response = await fetch(
-      `${PhotosServiceUrl}/api/photos?ownerId=${encodeURIComponent(userId)}`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
+        `${PhotosServiceUrl}/api/photos?ownerId=${encodeURIComponent(userId)}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
     );
 
     // NOTE: Похоже токен больше не действует,
